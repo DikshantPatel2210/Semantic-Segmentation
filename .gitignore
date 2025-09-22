@@ -1,0 +1,26 @@
+# Dataset folders
+dataset/
+dataset1/
+
+# Output / results
+output_pointnet2/
+output_randlanet/
+randlanet_test_output/
+artifacts/
+
+# Saved models
+saved_models_pointnet/
+saved_models_randlanet/
+
+# Logs
+logs/
+src/Segmentation/components/logs/
+
+# Virtual environment
+.venv1/
+Lib/
+
+# Research / experiments
+Research/
+experiment.py
+experiment2.py
