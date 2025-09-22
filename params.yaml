@@ -1,0 +1,150 @@
+artifacts_roots: artifacts
+preprocessing:
+
+  dataset_dir: "dataset"      #  preprocessed point cloud data
+
+  rotation:
+    enabled: true                # Enable or disable rotation augmentation
+    direction: [ "z" ]             # Axis around which rotation is applied, options: x, y, z
+    angle: 90                    # Rotation angle in degrees
+    target_files: "003_room.ply" # Specific files to apply rotation (can be a list)
+
+  normalization:
+    enabled: true                             # Enable normalization of point cloud data
+    target_files: ["all"]                      # Apply normalization to all files or a specific list
+    targets: [ "coords" , "color", "intensity" ]  # Which properties to normalize
+    coord_method: "custom"                    # Method for coordinates: minmax, zscore, or custom
+    color_method: "minmax"                    # Method for color normalization
+    intensity_method: "minmax"
+
+  label_mapping:
+    enabled: true                       # Enable mapping of raw semantic labels to consecutive integers
+    target_files: [ "all" ]             # Target files for label mapping
+    splits: [ "train", "test" ]         # Dataset splits to process
+    output_dir: "artifacts/label_maps"
+
+  chunking:
+    enabled: true               # Enable chunking of point clouds into smaller sub-patches
+    target_files: [ "all" ]     # Files to chunk
+    splits: [ "train", "test" ] # Dataset splits to chunk
+    base_dir: dataset           # Root folder for dataset
+    run_on: "both"              # Specify whether to run on train, test, or both
+    chunk_range: [ 2, 2 ]        # Number of chunks to create along each axis (x, y)
+    chunk_stride: [ 1, 1 ]       # Step size between chunks along each axis
+    chunk_minimum_size: 1      # Minimum number of points required in a chunk
+    grid_size: 0.01            # Grid resolution for chunking
+    num_workers: 4             # Number of parallel workers for chunking
+
+  pointnet2_input:
+    enabled: true              # Enable same-size chunking
+    base_dir: "dataset"        # Base folder containing dataset
+    chunk_size: 4000           # Number of points per chunk
+    augment: false             # Enable/disable augmentation
+
+  randlanet_input:
+    base_dir: "dataset"       # Root folder containing 'train/chunks' and 'test/chunks'
+    use_norm: true            # Use normalized coordinates (coord_norm.npy) if true
+    max_points: 20000         # total number of points at one pass to epoch
+
+
+
+model:
+  randlanet_arc:
+    d_out: [16, 64, 128, 256]  # Output channels for each layer in RandLANet
+    n_layers: 4                # Number of layers in RandLANet encoder
+    n_classes: 14              # Number of segmentation classes
+    k: 16                      # k-nearest neighbors for local aggregation
+    ratios: [4, 4, 4, 4]       # Subsampling ratios per layer
+    pool_size: 16              # Pooling size for local neighborhoods
+    dropout: 0.5               # Dropout probability
+    seed: 0                    # Random seed for reproducibility
+    device: "cuda"             # Device to train on (cuda/cpu)
+    batch_size: 2              # Batch size for training
+    epochs: 200                # Number of training epochs
+    lr: 0.001                  # Learning rate
+
+  pointnet2_model:
+    # Set Abstraction Layer 1
+    npoint_sa1: 1024           # Number of points sampled in SA layer 1
+    radius_sa1: 0.1            # Search radius for neighborhood in SA1
+    nsample_sa1: 32            # Maximum number of points per neighborhood in SA1
+    in_channel_sa1: 7          # Input feature channels for SA1
+    mlp_sa1: [32, 32, 64]      # MLP channels for SA1
+
+    # Set Abstraction Layer 2
+    npoint_sa2: 256            # Number of points sampled in SA layer 2
+    radius_sa2: 0.2            # Search radius for neighborhood in SA2
+    nsample_sa2: 32            # Maximum number of points per neighborhood in SA2
+    in_channel_sa2: 64         # Input channels (from SA1 output)
+    mlp_sa2: [64, 64, 128]     # MLP channels for SA2
+
+    # Set Abstraction Layer 3
+    npoint_sa3: 64             # Number of points sampled in SA layer 3
+    radius_sa3: 0.4            # Search radius for neighborhood in SA3
+    nsample_sa3: 32            # Maximum number of points per neighborhood in SA3
+    in_channel_sa3: 128        # Input channels (from SA2 output)
+    mlp_sa3: [128, 128, 256]   # MLP channels for SA3
+
+    # Feature Propagation layers (decoder)
+    fp3_channels: [256, 256]   # Channels for FP layer 3
+    fp2_channels: [256, 128]   # Channels for FP layer 2
+    fp1_channels: [128, 128, 128] # Channels for FP layer 1
+
+    # Number of segmentation classes
+    num_classes: 14            # Output classes
+
+  randlanet_training:
+    epochs: 200                                              # Number of training epochs
+    batch_size: 2                                            # Batch size for training
+    lr: 0.001                                                # Learning rate
+    weight_decay: 1e-5                                       # Weight decay for optimizer
+    save_model_dir: output_randlanet/saved_models_randlanet  # Directory to save trained models
+    seed: 0                                                  # Random seed for reproducibility
+    device: "cuda"                                           # Device to train on (cuda/cpu)
+
+  pointnet2_training:
+    training:
+      base_dir: dataset                          # Root directory for dataset
+      train_dir: dataset/train/same_size_chunks  # Directory containing train chunks
+      test_dir: dataset/test/same_size_chunks    # Directory containing test chunks
+      save_model_dir: output_pointnet2/saved_models_pointnet2  # Directory to save trained models
+    batch_size: 3        # Batch size for training
+    epochs: 150          # Number of training epochs
+    lr: 0.001            # Learning rate
+    step_size: 20        # Step size for learning rate scheduler
+    gamma: 0.5           # Multiplicative factor for learning rate decay
+    seed: 42             # Random seed for reproducibility
+    device: "cuda"       # Device to train on (cuda/cpu)
+
+  randlanet_test:
+    model_type: randlanet
+    model_path: "output_randlanet/epoch_198_randlanet.pth"   # Path to pretrained model
+    test_dir: "dataset/test/chunks"                          # Directory containing test chunks
+    save_pred_dir: "output_randlanet/randlanet_preds"        # Directory to save predictions
+    num_classes: 14                                          # Number of semantic classes
+    batch_size: 1
+
+  pointnet2_test:
+    model_type: pointnet2                                    # Type of model being tested (here, PointNet2)
+    model_path: "output_pointnet2/epoch_120_pointnet2.pth"  # Path to the trained model weights to load for testing
+    test_dir: "dataset/test/same_size_chunks"              # Directory containing the test point cloud data
+    save_pred_dir: "output_pointnet2/pointnet2_preds"     # Directory where the predicted outputs will be saved
+    batch_size: 2                                          # Number of samples per batch during testing (reduces memory usage)
+    num_classes: 14                                         # Total number of classes for segmentation / classification
+
+
+class_names:
+  - Wall
+  - Window
+  - Light
+  - Door Frame
+  - Ceiling
+  - Floor
+  - Board
+  - Switch-Socket
+  - Table
+  - Cabinet
+  - Cable
+  - Heater
+  - Clutter
+  - Tech

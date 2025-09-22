@@ -1,0 +1,268 @@
+stages:
+  directory_structure_validation:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_01_directory_structure.py
+    deps:
+      - src/Segmentation/pipeline/stage_01_directory_structure.py
+      - config/config.yaml
+
+
+  check_gpu_connection:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_02_check_gpu_connection.py
+    deps:
+      - src/Segmentation/pipeline/stage_02_check_gpu_connection.py
+      - config/config.yaml
+
+
+
+  ply_to_npy:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_03_ply_to_npy.py
+    deps:
+      - src/Segmentation/pipeline/stage_03_ply_to_npy.py
+      - config/config.yaml
+    outs:
+      - dataset/test/018_room/coord.npy
+      - dataset/test/018_room/color.npy
+      - dataset/test/018_room/normal.npy
+      - dataset/test/018_room/segment.npy
+      - dataset/test/018_room/strength.npy
+      - dataset/train/003_room/coord.npy
+      - dataset/train/003_room/color.npy
+      - dataset/train/003_room/normal.npy
+      - dataset/train/003_room/segment.npy
+      - dataset/train/003_room/strength.npy
+      - dataset/train/014_room/coord.npy
+      - dataset/train/014_room/color.npy
+      - dataset/train/014_room/normal.npy
+      - dataset/train/014_room/segment.npy
+      - dataset/train/014_room/strength.npy
+      - dataset/train/027_room/coord.npy
+      - dataset/train/027_room/color.npy
+      - dataset/train/027_room/normal.npy
+      - dataset/train/027_room/segment.npy
+      - dataset/train/027_room/strength.npy
+
+
+  rotation:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_04_01_rotation.py
+    deps:
+      - src/Segmentation/pipeline/stage_04_01_rotation.py
+      - config/config.yaml
+    outs:
+      - artifacts/rotated
+    params:
+      - preprocessing.rotation.enabled
+      - preprocessing.rotation.direction
+      - preprocessing.rotation.angle
+      - preprocessing.rotation.target_files
+
+  normalization:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_04_02_normalization.py
+    deps:
+      - src/Segmentation/pipeline/stage_04_02_normalization.py
+      - config/config.yaml
+    outs:
+      -  dataset/test/018_room/coord_norm.npy
+      -  dataset/train/003_room/coord_norm.npy
+      -  dataset/train/014_room/coord_norm.npy
+      -  dataset/train/027_room/coord_norm.npy
+    params:
+      - preprocessing.normalization.enabled
+      - preprocessing.normalization.target_files
+      - preprocessing.normalization.targets
+      - preprocessing.normalization.coord_method
+      - preprocessing.normalization.color_method
+      - preprocessing.normalization.intensity_method
+
+
+  label_mapping:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_05_label_mapping.py
+    deps:
+      - src/Segmentation/pipeline/stage_05_label_mapping.py
+      - config/config.yaml
+    outs:
+      - artifacts/label_maps
+
+
+    params:
+      - preprocessing.label_mapping.enabled
+      - preprocessing.label_mapping.target_files
+      - preprocessing.label_mapping.splits
+
+
+  chunks_process:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_06_chucks_process.py
+    deps:
+      - src/Segmentation/pipeline/stage_06_chucks_process.py
+      - config/config.yaml
+      - params.yaml
+    outs:
+      - dataset/train/chunks
+      - dataset/test/chunks
+    params:
+      - preprocessing.chunking.enabled
+      - preprocessing.chunking.target_files
+      - preprocessing.chunking.splits
+      - preprocessing.chunking.base_dir
+      - preprocessing.chunking.run_on
+      - preprocessing.chunking.chunk_range
+      - preprocessing.chunking.chunk_stride
+      - preprocessing.chunking.chunk_minimum_size
+      - preprocessing.chunking.grid_size
+      - preprocessing.chunking.num_workers
+
+  pointnet2_input:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_07_pointnet2_input.py
+    deps:
+      - src/Segmentation/pipeline/stage_07_pointnet2_input.py
+      - config/config.yaml
+    outs:
+      - dataset/train/same_size_chunks
+      - dataset/test/same_size_chunks
+
+    params:
+      - preprocessing.pointnet2_input.chunk_size
+      - preprocessing.pointnet2_input.augment
+      - preprocessing.pointnet2_input.base_dir
+      - preprocessing.pointnet2_input.enabled
+
+  randlanet_input:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_08_randlanet_input.py
+    deps:
+      - src/Segmentation/pipeline/stage_08_randlanet_input.py
+      - config/config.yaml
+      - dataset/train/chunks
+      - dataset/test/chunks
+    params:
+      - preprocessing.randlanet_input.use_norm
+      - preprocessing.randlanet_input.max_points
+      - preprocessing.randlanet_input.base_dir
+
+
+  randlanet_model:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_09_randlanet.py
+    deps:
+      - src/Segmentation/pipeline/stage_09_randlanet.py
+      - params.yaml
+    params:
+      - model.randlanet_arc.d_out
+      - model.randlanet_arc.n_layers
+      - model.randlanet_arc.n_classes
+      - model.randlanet_arc.k
+      - model.randlanet_arc.ratios
+      - model.randlanet_arc.pool_size
+      - model.randlanet_arc.dropout
+      - model.randlanet_arc.seed
+      - model.randlanet_arc.device
+      - model.randlanet_arc.batch_size
+      - model.randlanet_arc.epochs
+      - model.randlanet_arc.lr
+
+  pointnet2_model:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_11_pointnet2.py
+    deps:
+      - src/Segmentation/pipeline/stage_11_pointnet2.py
+      - params.yaml
+    params:
+      - model.pointnet2_model.npoint_sa1
+      - model.pointnet2_model.radius_sa1
+      - model.pointnet2_model.nsample_sa1
+      - model.pointnet2_model.in_channel_sa1
+      - model.pointnet2_model.mlp_sa1
+      - model.pointnet2_model.npoint_sa2
+      - model.pointnet2_model.radius_sa2
+      - model.pointnet2_model.nsample_sa2
+      - model.pointnet2_model.in_channel_sa2
+      - model.pointnet2_model.mlp_sa2
+      - model.pointnet2_model.npoint_sa3
+      - model.pointnet2_model.radius_sa3
+      - model.pointnet2_model.nsample_sa3
+      - model.pointnet2_model.in_channel_sa3
+      - model.pointnet2_model.mlp_sa3
+      - model.pointnet2_model.fp3_channels
+      - model.pointnet2_model.fp2_channels
+      - model.pointnet2_model.fp1_channels
+      - model.pointnet2_model.num_classes
+
+  randlanet_test:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_13_randlanet_testing.py
+
+    deps:
+      - src/Segmentation/pipeline/stage_13_randlanet_testing.py
+      - src/Segmentation/components/randlanet_input.py
+      - src/Segmentation/components/randlanet.py
+      - params.yaml
+
+    outs:
+      - output_randlanet/randlanet_preds
+
+    params:
+      - model.randlanet_test.model_type
+      - model.randlanet_test.model_path
+      - model.randlanet_test.test_dir
+      - model.randlanet_test.save_pred_dir
+      - model.randlanet_test.num_classes
+      - model.randlanet_test.batch_size
+
+  pointnet2_test:
+
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_14_pointnet2_testing.py
+    deps:
+      - src/Segmentation/pipeline/stage_14_pointnet2_testing.py
+      - src/Segmentation/components/pointnet2.py
+      - src/Segmentation/components/pointnet2_input.py
+      - params.yaml
+    outs:
+      - output_pointnet2/pointnet2_preds
+    params:
+      - model.pointnet2_test.model_path
+      - model.pointnet2_test.test_dir
+      - model.pointnet2_test.save_pred_dir
+      - model.pointnet2_test.batch_size
+      - model.pointnet2_test.num_classes
+      - class_names
+
+  randlanet_training:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/pipeline/stage_10_randlanet_training.py
+    deps:
+      - src/Segmentation/pipeline/stage_10_randlanet_training.py
+      - params.yaml
+      - src/Segmentation/components/randlanet.py
+      - src/Segmentation/components/randlanet_input.py
+    outs:
+      - output_randlanet/saved_models_randlanet
+    params:
+      - model.randlanet_training.epochs
+      - model.randlanet_training.batch_size
+      - model.randlanet_training.lr
+      - model.randlanet_training.weight_decay
+      - model.randlanet_training.seed
+      - model.randlanet_training.device
+
+
+
+  pointnet2_training:
+    cmd: set PYTHONPATH=%cd% && python src/Segmentation/components/pointnet2_training.py
+    deps:
+      - src/Segmentation/components/pointnet2_training.py
+      - src/Segmentation/components/pointnet2.py
+      - src/Segmentation/components/pointnet2_input.py
+      - params.yaml
+    outs:
+      - output_pointnet2/saved_models_pointnet2
+    params:
+      - model.pointnet2_training.training.base_dir
+      - model.pointnet2_training.training.train_dir
+      - model.pointnet2_training.training.test_dir
+      - model.pointnet2_training.batch_size
+      - model.pointnet2_training.epochs
+      - model.pointnet2_training.lr
+      - model.pointnet2_training.step_size
+      - model.pointnet2_training.gamma
+      - model.pointnet2_training.seed
+      - model.pointnet2_training.device
+
+
+
+
+
+
