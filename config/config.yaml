@@ -1,0 +1,19 @@
+artifacts_roots: artifacts          # Root folder for all artifacts (logs, models, processed data)
+
+Directory_structure:
+  base_dir: artifacts              # Base directory for storing all dataset artifacts
+  train_dir: artifacts/train       # Directory for training data
+  test_dir: artifacts/test         # Directory for testing data
+  save_model_dir: artifacts/saved_models_randlanet  # Directory to save trained RandLANet models
+
+GPU_checker:
+  fail_on_no_gpu: true                     # Fail execution if no GPU is detected
+  required_min_cuda_version: "11.8"       # Minimum CUDA version required
+  required_min_pytorch_version: "2.0.0"   # Minimum PyTorch version required
+
+ply_to_npy:
+  output_dir: dataset         # Output directory where .npy files will be stored after conversion
+  save_normals: true          # Whether to save surface normals during ply to npy conversion
+
+
+                                                                                                                  # Number of semantic classes
